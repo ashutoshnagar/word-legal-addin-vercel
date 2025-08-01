@@ -325,8 +325,16 @@
                     <p>This tool is also available as a Word add-in! <a href="/manifest.xml" download>Download manifest.xml</a> to sideload into Microsoft Word for seamless integration.</p>
                 </div>
                 
+                <div style="margin-bottom: 15px;">
+                    <label for="webPersonaSelect" style="display: block; margin-bottom: 8px; font-weight: 600; color: #323130;">Select Review Type:</label>
+                    <select id="webPersonaSelect" style="width: 100%; padding: 10px; border: 2px solid #edebe9; border-radius: 4px; font-size: 14px; background-color: white;">
+                        <option value="legal">⚖️ Legal Compliance Review</option>
+                        <option value="audit">📋 Audit Review (L1 Checklist)</option>
+                    </select>
+                </div>
+
                 <div class="sample-text">
-                    <h4>Sample Legal Document</h4>
+                    <h4>Sample Document</h4>
                     <button class="sample-button" onclick="loadSampleDocument()">
                         📝 Load Sample Service Agreement
                     </button>
@@ -424,13 +432,19 @@ Additional Terms:
             analyzeBtn.disabled = true;
             
             try {
+                // Get selected persona
+                const selectedPersona = document.getElementById("webPersonaSelect").value;
+                
                 // Use relative URL for Vercel deployment
                 const response = await fetch('/api/legal-analysis', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ documentText: documentText })
+                    body: JSON.stringify({ 
+                        documentText: documentText,
+                        persona: selectedPersona 
+                    })
                 });
                 
                 if (!response.ok) {

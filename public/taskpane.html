@@ -183,7 +183,15 @@
             </div>
         </div>
 
-        <button id="analyzeBtn" class="analyze-button">Analyze Document for Legal Issues</button>
+        <div style="margin-bottom: 15px;">
+            <label for="personaSelect" style="display: block; margin-bottom: 8px; font-weight: 600; color: #323130;">Select Review Type:</label>
+            <select id="personaSelect" style="width: 100%; padding: 10px; border: 2px solid #edebe9; border-radius: 4px; font-size: 14px; background-color: white;">
+                <option value="legal">⚖️ Legal Compliance Review</option>
+                <option value="audit">📋 Audit Review (L1 Checklist)</option>
+            </select>
+        </div>
+
+        <button id="analyzeBtn" class="analyze-button">Analyze Document</button>
         
         <div id="status" class="status"></div>
         
@@ -230,13 +238,19 @@
                     return;
                 }
                 
+                // Get selected persona
+                const selectedPersona = document.getElementById("personaSelect").value;
+                
                 // Call Vercel API
                 const response = await fetch('/api/legal-analysis', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ documentText: documentText })
+                    body: JSON.stringify({ 
+                        documentText: documentText,
+                        persona: selectedPersona 
+                    })
                 });
                 
                 if (!response.ok) {
@@ -248,11 +262,13 @@
                 // Display results and add comments
                 displayResults(analysisResult);
                 
+                const personaName = selectedPersona === 'audit' ? 'audit' : 'legal';
+                
                 if (analysisResult.issues && analysisResult.issues.length > 0) {
                     await addCommentsToDocument(analysisResult.issues);
-                    showStatus("success", `Analysis complete! Found ${analysisResult.issues.length} legal issues. Comments have been added to your document.`);
+                    showStatus("success", `${personaName} analysis complete! Found ${analysisResult.issues.length} issues. Comments have been added to your document.`);
                 } else {
-                    showStatus("success", "Analysis complete! No legal issues found in your document.");
+                    showStatus("success", `${personaName} analysis complete! No issues found in your document.`);
                 }
                 
             } catch (error) {
@@ -331,7 +347,9 @@
                 return;
             }
             
-            let resultsHTML = '<h3>Legal Issues Found:</h3>';
+            const personaType = document.getElementById("personaSelect").value;
+            const resultsTitle = personaType === 'audit' ? 'Audit Issues Found:' : 'Legal Issues Found:';
+            let resultsHTML = `<h3>${resultsTitle}</h3>`;
             
             analysisResult.issues.forEach((issue, index) => {
                 const severityClass = issue.severity || 'medium';

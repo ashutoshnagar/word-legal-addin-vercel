@@ -5,7 +5,7 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY || '',
 });
 
-// Legal persona prompt
+// Persona prompts
 const LEGAL_PERSONA_PROMPT = `You are a legal compliance expert reviewing a document. Analyze the document for the following legal issues:
 
 1. Missing liability clauses
@@ -29,6 +29,32 @@ For each issue found, respond in this EXACT JSON format:
 
 Be specific about paragraph numbers where issues are found. If no issues are found, return {"issues": []}.`;
 
+const AUDIT_PERSONA_PROMPT = `You are an audit expert reviewing a document against L1 Review Checklist standards. Check the document for these 5 key formatting and content issues:
+
+1. FONT CHECK: All text should use Calibri font (identify if other fonts like Arial, Times New Roman, Aptos are used)
+2. FONT SIZE CHECK: 
+   - Report titles should be 20pt
+   - Headings should be 16pt  
+   - Sub-headings should be 13pt
+   - Regular content should be 11pt
+3. NAME PREFIXES: No prefixes like "Mr.", "Ms.", "Miss", "Mrs." should be used before names
+4. DATE FORMAT: Dates should be in "MMM DD, YYYY" format (e.g., "Jan 15, 2025" not "15/01/2025" or "January 15th, 2025")
+5. CAPITALIZATION: Team/policy names should be "Regional Sales team" not "Regional Sales Team" (first word capitalized, second word lowercase)
+
+For each violation found, respond in this EXACT JSON format:
+{
+  "issues": [
+    {
+      "type": "Font Size Issue",
+      "location": "Page 1, report title",
+      "comment": "Report title is using 24pt font size. As per L1 standards, it should be 20pt.",
+      "severity": "medium"
+    }
+  ]
+}
+
+Be specific about locations where issues are found. If no issues are found, return {"issues": []}.`;
+
 export default async function handler(req, res) {
   // Set CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -46,7 +72,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { documentText } = req.body;
+    const { documentText, persona = 'legal' } = req.body;
     
     if (!documentText) {
       return res.status(400).json({ error: 'Document text is required' });
@@ -61,7 +87,11 @@ export default async function handler(req, res) {
       });
     }
 
-    console.log('Analyzing document with Anthropic...');
+    // Select the appropriate prompt based on persona
+    const selectedPrompt = persona === 'audit' ? AUDIT_PERSONA_PROMPT : LEGAL_PERSONA_PROMPT;
+    const personaName = persona === 'audit' ? 'Audit' : 'Legal';
+
+    console.log(`Analyzing document with ${personaName} persona using Anthropic...`);
     console.log('API Key available:', !!process.env.ANTHROPIC_API_KEY);
     
     // Create Anthropic client with explicit API key
@@ -75,7 +105,7 @@ export default async function handler(req, res) {
       messages: [
         {
           role: 'user',
-          content: `${LEGAL_PERSONA_PROMPT}\n\nDocument to analyze:\n${documentText}`
+          content: `${selectedPrompt}\n\nDocument to analyze:\n${documentText}`
         }
       ]
     });
