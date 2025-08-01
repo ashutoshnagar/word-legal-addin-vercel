@@ -125,10 +125,13 @@ export default async function handler(req, res) {
         
         // Clean smart quotes and other problematic characters
         jsonString = jsonString
-          .replace(/"/g, '"')  // Replace smart quotes with regular quotes
-          .replace(/"/g, '"')  // Replace smart quotes with regular quotes
-          .replace(/'/g, "'")  // Replace smart single quotes
-          .replace(/'/g, "'"); // Replace smart single quotes
+          .replace(/[\u201C\u201D]/g, '"')  // Replace " and " with "
+          .replace(/[\u2018\u2019]/g, "'")  // Replace ' and ' with '
+          .replace(/"/g, '"')              // Replace any remaining " with "
+          .replace(/"/g, '"')              // Replace any remaining " with "
+          .replace(/'/g, "'")              // Replace any remaining ' with '
+          .replace(/'/g, "'")              // Replace any remaining ' with '
+          .replace(/[^\x00-\x7F]/g, "");   // Remove any non-ASCII characters that might cause issues
         
         console.log('Extracted JSON:', jsonString);
         analysisResult = JSON.parse(jsonString);
