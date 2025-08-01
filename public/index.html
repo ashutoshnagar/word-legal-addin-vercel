@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Legal Review Assistant - AI-Powered Document Analysis</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f3f2f1;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #0078d4, #106ebe);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 2.2em;
+            font-weight: 300;
+        }
+        
+        .header p {
+            margin: 10px 0 0 0;
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+        
+        .main-content {
+            display: flex;
+            min-height: 600px;
+        }
+        
+        .input-section {
+            flex: 1;
+            padding: 30px;
+            border-right: 1px solid #edebe9;
+        }
+        
+        .results-section {
+            flex: 1;
+            padding: 30px;
+            background-color: #faf9f8;
+        }
+        
+        .section-title {
+            font-size: 1.3em;
+            font-weight: 600;
+            color: #323130;
+            margin: 0 0 20px 0;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #0078d4;
+        }
+        
+        textarea {
+            width: 100%;
+            height: 400px;
+            padding: 15px;
+            border: 2px solid #edebe9;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            resize: vertical;
+            transition: border-color 0.3s;
+        }
+        
+        textarea:focus {
+            outline: none;
+            border-color: #0078d4;
+        }
+        
+        .analyze-button {
+            background: linear-gradient(135deg, #0078d4, #106ebe);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 16px;
+            font-weight: 600;
+            border-radius: 6px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 20px;
+            transition: all 0.3s;
+        }
+        
+        .analyze-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0,120,212,0.3);
+        }
+        
+        .analyze-button:disabled {
+            background: #a19f9d;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 30px;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #0078d4;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .results {
+            min-height: 400px;
+        }
+        
+        .summary-stats {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            flex: 1;
+            background: white;
+            padding: 20px;
+            border-radius: 6px;
+            text-align: center;
+            border-left: 4px solid #0078d4;
+        }
+        
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #0078d4;
+        }
+        
+        .stat-label {
+            color: #605e5c;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+        
+        .issue-card {
+            background: white;
+            border: 1px solid #edebe9;
+            border-radius: 6px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 4px solid #ff4b4b;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .issue-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        .issue-card.high {
+            border-left-color: #d13438;
+        }
+        
+        .issue-card.medium {
+            border-left-color: #ff8c00;
+        }
+        
+        .issue-card.low {
+            border-left-color: #ffb900;
+        }
+        
+        .issue-type {
+            font-weight: 600;
+            color: #323130;
+            font-size: 1.1em;
+            margin-bottom: 8px;
+        }
+        
+        .issue-location {
+            font-size: 12px;
+            color: #605e5c;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .issue-comment {
+            color: #323130;
+            line-height: 1.5;
+        }
+        
+        .severity-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin-left: 10px;
+        }
+        
+        .severity-high {
+            background: #fde7e9;
+            color: #d13438;
+        }
+        
+        .severity-medium {
+            background: #fff4ce;
+            color: #8a6914;
+        }
+        
+        .severity-low {
+            background: #e6f3ff;
+            color: #004578;
+        }
+        
+        .no-issues {
+            text-align: center;
+            padding: 60px 20px;
+            color: #605e5c;
+        }
+        
+        .no-issues .icon {
+            font-size: 4em;
+            color: #107c10;
+            margin-bottom: 20px;
+        }
+        
+        .sample-text {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .sample-text h4 {
+            margin: 0 0 10px 0;
+            color: #0078d4;
+        }
+        
+        .sample-button {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            color: #605e5c;
+            margin-bottom: 15px;
+        }
+        
+        .sample-button:hover {
+            background: #e9ecef;
+        }
+        
+        .error-message {
+            background: #fde7e9;
+            border: 1px solid #d13438;
+            color: #a80000;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+
+        .word-addin-info {
+            background: #e6f3ff;
+            border: 1px solid #0078d4;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .word-addin-info h4 {
+            margin: 0 0 10px 0;
+            color: #0078d4;
+        }
+
+        .word-addin-info a {
+            color: #0078d4;
+            text-decoration: none;
+        }
+
+        .word-addin-info a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏛️ Legal Review Assistant</h1>
+            <p>AI-Powered Legal Document Analysis with Custom Personas</p>
+        </div>
+        
+        <div class="main-content">
+            <div class="input-section">
+                <h2 class="section-title">📄 Document Input</h2>
+                
+                <div class="word-addin-info">
+                    <h4>💡 Word Add-in Available</h4>
+                    <p>This tool is also available as a Word add-in! <a href="/manifest.xml" download>Download manifest.xml</a> to sideload into Microsoft Word for seamless integration.</p>
+                </div>
+                
+                <div class="sample-text">
+                    <h4>Sample Legal Document</h4>
+                    <button class="sample-button" onclick="loadSampleDocument()">
+                        📝 Load Sample Service Agreement
+                    </button>
+                </div>
+                
+                <textarea id="documentText" placeholder="Paste your legal document here for analysis...
+
+Example:
+Service Agreement
+
+This agreement is between Company A and Company B for the provision of consulting services.
+
+The consultant will provide services for a period of 12 months starting January 1, 2024.
+
+Payment will be made monthly based on hours worked.
+
+Both parties agree to maintain confidentiality of all information shared.
+
+The agreement may be terminated by either party.
+
+---
+
+Paste your actual legal document above and click 'Analyze Document' to get AI-powered legal compliance insights.">Service Agreement
+
+This agreement is between Company A and Company B for the provision of consulting services.
+
+The consultant will provide services for a period of 12 months starting January 1, 2024.
+
+Payment will be made monthly based on hours worked.
+
+Both parties agree to maintain confidentiality of all information shared.
+
+The agreement may be terminated by either party.</textarea>
+                
+                <button id="analyzeBtn" class="analyze-button" onclick="analyzeDocument()">
+                    🤖 Analyze Document with Legal AI
+                </button>
+            </div>
+            
+            <div class="results-section">
+                <h2 class="section-title">📊 Analysis Results</h2>
+                
+                <div id="loading" class="loading">
+                    <div class="spinner"></div>
+                    <p><strong>Analyzing document with AI Legal Persona...</strong></p>
+                    <p>Checking for liability clauses, termination conditions, governing law, and more...</p>
+                </div>
+                
+                <div id="results" class="results">
+                    <div class="no-issues">
+                        <div class="icon">📋</div>
+                        <h3>Ready for Analysis</h3>
+                        <p>Enter your legal document text and click "Analyze Document" to get AI-powered legal compliance insights.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function loadSampleDocument() {
+            document.getElementById('documentText').value = `Service Agreement
+
+This agreement is between Company A and Company B for the provision of consulting services.
+
+The consultant will provide services for a period of 12 months starting January 1, 2024.
+
+Payment will be made monthly based on hours worked.
+
+Both parties agree to maintain confidentiality of all information shared.
+
+The agreement may be terminated by either party.
+
+Additional Terms:
+- Services will be provided remotely
+- Client will provide necessary resources
+- Deliverables due at end of each month
+- Either party may request modifications to scope`;
+        }
+
+        async function analyzeDocument() {
+            const analyzeBtn = document.getElementById('analyzeBtn');
+            const loadingDiv = document.getElementById('loading');
+            const resultsDiv = document.getElementById('results');
+            const documentText = document.getElementById('documentText').value;
+            
+            if (!documentText || documentText.trim().length === 0) {
+                showError('Please enter document text to analyze.');
+                return;
+            }
+            
+            // Reset UI
+            loadingDiv.style.display = 'block';
+            resultsDiv.innerHTML = '';
+            analyzeBtn.disabled = true;
+            
+            try {
+                // Use relative URL for Vercel deployment
+                const response = await fetch('/api/legal-analysis', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ documentText: documentText })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Backend error: ${response.status}`);
+                }
+                
+                const analysisResult = await response.json();
+                displayResults(analysisResult);
+                
+            } catch (error) {
+                console.error('Analysis error:', error);
+                showError(`Analysis failed: ${error.message}. Please try again in a moment.`);
+            } finally {
+                loadingDiv.style.display = 'none';
+                analyzeBtn.disabled = false;
+            }
+        }
+
+        function displayResults(analysisResult) {
+            const resultsDiv = document.getElementById('results');
+            
+            if (!analysisResult.issues || analysisResult.issues.length === 0) {
+                resultsDiv.innerHTML = `
+                    <div class="no-issues">
+                        <div class="icon">✅</div>
+                        <h3>No Legal Issues Found</h3>
+                        <p>Your document appears to be compliant with the basic legal requirements we checked.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Summary stats
+            const highIssues = analysisResult.issues.filter(i => i.severity === 'high').length;
+            const mediumIssues = analysisResult.issues.filter(i => i.severity === 'medium').length;
+            const lowIssues = analysisResult.issues.filter(i => i.severity === 'low').length;
+            
+            let resultsHTML = `
+                <div class="summary-stats">
+                    <div class="stat-card">
+                        <div class="stat-number">${analysisResult.issues.length}</div>
+                        <div class="stat-label">Total Issues</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" style="color: #d13438">${highIssues}</div>
+                        <div class="stat-label">High Priority</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" style="color: #ff8c00">${mediumIssues}</div>
+                        <div class="stat-label">Medium Priority</div>
+                    </div>
+                </div>
+                
+                <h3 style="margin-bottom: 20px; color: #323130;">🚨 Legal Issues Identified:</h3>
+            `;
+            
+            analysisResult.issues.forEach((issue, index) => {
+                const severityClass = issue.severity || 'medium';
+                const severityLabel = severityClass.charAt(0).toUpperCase() + severityClass.slice(1);
+                
+                resultsHTML += `
+                    <div class="issue-card ${severityClass}">
+                        <div class="issue-type">
+                            ${issue.type}
+                            <span class="severity-badge severity-${severityClass}">${severityLabel}</span>
+                        </div>
+                        <div class="issue-location">
+                            📍 ${issue.location}
+                        </div>
+                        <div class="issue-comment">${issue.comment}</div>
+                    </div>
+                `;
+            });
+            
+            resultsDiv.innerHTML = resultsHTML;
+        }
+
+        function showError(message) {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = `
+                <div class="error-message">
+                    <strong>❌ Error:</strong> ${message}
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>
