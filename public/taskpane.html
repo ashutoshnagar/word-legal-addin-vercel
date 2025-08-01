@@ -418,47 +418,138 @@
         
         // PHASE 1: Advanced Helper Functions for Enhanced Comment Placement
         
-        // Advanced exact text search with multiple strategies
+        // Enhanced exact text search with precision targeting
         async function findExactTextAdvanced(context, body, searchText) {
             try {
-                // Strategy 1: Direct search
+                console.log(`   🔍 Searching for: "${searchText}"`);
+                
+                // Strategy 1: Exact match search
                 let searchResults = body.search(searchText, { matchCase: false, matchWholeWord: false });
                 context.load(searchResults, 'items');
                 await context.sync();
                 
-                if (searchResults.items.length > 0) {
+                console.log(`   📊 Found ${searchResults.items.length} exact matches`);
+                
+                if (searchResults.items.length === 1) {
+                    // Perfect: exactly one match found
+                    console.log(`   ✅ Single exact match found`);
                     return searchResults.items[0];
+                } else if (searchResults.items.length > 1) {
+                    // Multiple matches: need to pick the best one
+                    console.log(`   ⚠️ Multiple matches found, selecting best match`);
+                    return await selectBestMatch(context, searchResults.items, searchText);
                 }
                 
-                // Strategy 2: Try without punctuation
-                const cleanText = searchText.replace(/[^\w\s]/g, '');
-                if (cleanText !== searchText) {
+                // Strategy 2: Try with normalized whitespace
+                const normalizedText = searchText.replace(/\s+/g, ' ').trim();
+                if (normalizedText !== searchText) {
+                    console.log(`   🔍 Trying normalized: "${normalizedText}"`);
+                    searchResults = body.search(normalizedText, { matchCase: false, matchWholeWord: false });
+                    context.load(searchResults, 'items');
+                    await context.sync();
+                    
+                    if (searchResults.items.length > 0) {
+                        console.log(`   ✅ Normalized match found`);
+                        return searchResults.items[0];
+                    }
+                }
+                
+                // Strategy 3: Try without punctuation
+                const cleanText = searchText.replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim();
+                if (cleanText !== searchText && cleanText.length > 5) {
+                    console.log(`   🔍 Trying clean: "${cleanText}"`);
                     searchResults = body.search(cleanText, { matchCase: false, matchWholeWord: false });
                     context.load(searchResults, 'items');
                     await context.sync();
                     
                     if (searchResults.items.length > 0) {
+                        console.log(`   ✅ Clean match found`);
                         return searchResults.items[0];
                     }
                 }
                 
-                // Strategy 3: Try first few words
-                const words = searchText.split(' ');
-                if (words.length > 2) {
-                    const firstTwoWords = words.slice(0, 2).join(' ');
-                    searchResults = body.search(firstTwoWords, { matchCase: false, matchWholeWord: false });
+                // Strategy 4: Try key words (longer phrases only)
+                const words = searchText.split(' ').filter(w => w.length > 2);
+                if (words.length >= 3) {
+                    const keyWords = words.slice(0, Math.min(3, words.length)).join(' ');
+                    console.log(`   🔍 Trying key words: "${keyWords}"`);
+                    searchResults = body.search(keyWords, { matchCase: false, matchWholeWord: false });
                     context.load(searchResults, 'items');
                     await context.sync();
                     
                     if (searchResults.items.length > 0) {
-                        return searchResults.items[0];
+                        console.log(`   ✅ Key words match found`);
+                        return await selectBestMatch(context, searchResults.items, searchText);
                     }
                 }
+                
+                console.log(`   ❌ No matches found for: "${searchText}"`);
                 
             } catch (error) {
                 console.warn('Advanced search failed for:', searchText, error);
             }
             return null;
+        }
+        
+        // Select the best match when multiple matches are found
+        async function selectBestMatch(context, matches, originalSearchText) {
+            try {
+                // Load context for all matches to make better decision
+                const matchData = [];
+                
+                for (let i = 0; i < Math.min(matches.length, 5); i++) {
+                    const match = matches[i];
+                    const expandedRange = match.expandTo || match.getRange();
+                    context.load(expandedRange, 'text');
+                }
+                await context.sync();
+                
+                // Analyze matches and pick the most appropriate one
+                for (let i = 0; i < Math.min(matches.length, 5); i++) {
+                    const match = matches[i];
+                    const expandedRange = match.expandTo || match.getRange();
+                    const contextText = expandedRange.text || '';
+                    
+                    matchData.push({
+                        match: match,
+                        context: contextText,
+                        score: calculateMatchScore(originalSearchText, contextText)
+                    });
+                }
+                
+                // Sort by score and return the best match
+                matchData.sort((a, b) => b.score - a.score);
+                console.log(`   🎯 Selected best match with score: ${matchData[0].score}`);
+                return matchData[0].match;
+                
+            } catch (error) {
+                console.warn('Best match selection failed:', error);
+                return matches[0]; // Fallback to first match
+            }
+        }
+        
+        // Calculate match score based on context relevance
+        function calculateMatchScore(searchText, contextText) {
+            let score = 0;
+            const searchWords = searchText.toLowerCase().split(/\s+/);
+            const contextWords = contextText.toLowerCase().split(/\s+/);
+            
+            // Score based on word overlap
+            for (const word of searchWords) {
+                if (word.length > 2 && contextWords.includes(word)) {
+                    score += word.length;
+                }
+            }
+            
+            // Prefer shorter contexts (more specific matches)
+            score += Math.max(0, 100 - contextText.length / 2);
+            
+            // Bonus for exact phrase match
+            if (contextText.toLowerCase().includes(searchText.toLowerCase())) {
+                score += 50;
+            }
+            
+            return score;
         }
         
         // Fuzzy text matching for variations
