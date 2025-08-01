@@ -3,5 +3,25 @@
     "api/legal-analysis.js": {
       "maxDuration": 30
     }
-  }
+  },
+  "headers": [
+    {
+      "source": "/taskpane.html",
+      "headers": [
+        {
+          "key": "X-Frame-Options",
+          "value": "ALLOWALL"
+        }
+      ]
+    },
+    {
+      "source": "/commands.html",
+      "headers": [
+        {
+          "key": "X-Frame-Options", 
+          "value": "ALLOWALL"
+        }
+      ]
+    }
+  ]
 }
