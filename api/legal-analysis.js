@@ -113,18 +113,26 @@ export default async function handler(req, res) {
     const responseText = message.content[0].text;
     console.log('Anthropic response:', responseText);
     
-    // Parse JSON response
+    // Extract JSON from response (handle cases where Claude adds explanatory text)
     let analysisResult;
     try {
-      analysisResult = JSON.parse(responseText);
+      // Look for JSON object in the response
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        analysisResult = JSON.parse(jsonMatch[0]);
+      } else {
+        throw new Error('No JSON found in response');
+      }
     } catch (parseError) {
       console.error('Failed to parse JSON response:', parseError);
+      console.error('Raw response:', responseText);
+      
       // Fallback response if JSON parsing fails
       analysisResult = {
         issues: [{
-          type: "Analysis Error",
+          type: "Analysis Processing Issue",
           location: "document",
-          comment: "Unable to parse analysis results. Please try again.",
+          comment: "AI analysis completed but results formatting needs adjustment. Please try again.",
           severity: "low"
         }]
       };
