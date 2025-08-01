@@ -2,7 +2,7 @@ import Anthropic from '@anthropic-ai/sdk';
 
 // Initialize Anthropic client
 const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
+  apiKey: process.env.ANTHROPIC_API_KEY || '',
 });
 
 // Legal persona prompt
@@ -52,9 +52,24 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Document text is required' });
     }
 
+    // Check if API key is available
+    if (!process.env.ANTHROPIC_API_KEY) {
+      console.error('ANTHROPIC_API_KEY environment variable is not set');
+      return res.status(500).json({ 
+        error: 'Configuration error', 
+        details: 'API key not configured. Please set ANTHROPIC_API_KEY environment variable in Vercel dashboard.' 
+      });
+    }
+
     console.log('Analyzing document with Anthropic...');
+    console.log('API Key available:', !!process.env.ANTHROPIC_API_KEY);
     
-    const message = await anthropic.messages.create({
+    // Create Anthropic client with explicit API key
+    const anthropicClient = new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY,
+    });
+    
+    const message = await anthropicClient.messages.create({
       model: 'claude-3-haiku-20240307',
       max_tokens: 1000,
       messages: [
