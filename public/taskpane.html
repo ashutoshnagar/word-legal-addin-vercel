@@ -327,75 +327,35 @@
                             console.log(`   Location: ${issue.location}`);
                             console.log(`   Exact text: "${issue.exact_text || 'None'}"`);
                             
-                            // PRIORITY 1: Exact text search with fuzzy matching
+                            // SIMPLE STRATEGY: Basic text search with distributed placement
                             if (issue.exact_text) {
-                                console.log(`   🔍 Strategy 1: Exact text search`);
-                                targetRange = await findExactTextAdvanced(context, body, issue.exact_text);
+                                console.log(`   🔍 Searching: "${issue.exact_text}"`);
+                                targetRange = await searchAndGetRange(context, body, issue.exact_text);
                                 
                                 if (targetRange) {
-                                    placementMethod = `exact_text_match: "${issue.exact_text}"`;
-                                    console.log(`   ✅ Found exact text match`);
+                                    placementMethod = `exact_text_found`;
+                                    console.log(`   ✅ Found text match`);
+                                }
+                            }
+                            
+                            // FALLBACK: Distribute comments evenly across document sections
+                            if (!targetRange) {
+                                console.log(`   🔍 Using distributed placement`);
+                                const sectionIndex = Math.floor((i / issues.length) * totalParagraphs);
+                                const targetIndex = Math.min(sectionIndex, totalParagraphs - 1);
+                                
+                                if (paragraphs.items[targetIndex]) {
+                                    targetRange = paragraphs.items[targetIndex].getRange();
+                                    placementMethod = `distributed_placement: section_${targetIndex}`;
+                                    console.log(`   ✅ Placed in section ${targetIndex}`);
                                 } else {
-                                    console.log(`   ❌ Exact text not found, trying fuzzy matching`);
-                                    targetRange = await findTextFuzzy(context, body, issue.exact_text);
-                                    if (targetRange) {
-                                        placementMethod = `fuzzy_text_match: "${issue.exact_text}"`;
-                                        console.log(`   ✅ Found fuzzy text match`);
-                                    }
+                                    targetRange = body.getRange('Start');
+                                    placementMethod = "fallback_start";
                                 }
                             }
                             
-                            // PRIORITY 2: Paragraph-level targeting
-                            if (!targetRange) {
-                                console.log(`   🔍 Strategy 2: Paragraph-level search`);
-                                targetRange = await findInParagraphs(context, paragraphs, issue);
-                                if (targetRange) {
-                                    placementMethod = `paragraph_level_match`;
-                                    console.log(`   ✅ Found paragraph-level match`);
-                                }
-                            }
-                            
-                            // PRIORITY 3: Table cell targeting
-                            if (!targetRange && tables.items.length > 0) {
-                                console.log(`   🔍 Strategy 3: Table cell search`);
-                                targetRange = await findInTables(context, tables, issue);
-                                if (targetRange) {
-                                    placementMethod = `table_cell_match`;
-                                    console.log(`   ✅ Found table cell match`);
-                                }
-                            }
-                            
-                            // PRIORITY 4: Enhanced page distribution
-                            if (!targetRange && issue.location) {
-                                console.log(`   🔍 Strategy 4: Enhanced page distribution`);
-                                targetRange = await findByPageDistribution(context, paragraphs, issue, totalParagraphs);
-                                if (targetRange) {
-                                    placementMethod = `page_distribution_match`;
-                                    console.log(`   ✅ Placed using page distribution`);
-                                }
-                            }
-                            
-                            // PRIORITY 5: Document section fallback
-                            if (!targetRange) {
-                                console.log(`   🔍 Strategy 5: Document section fallback`);
-                                const sectionIndex = Math.min(i, Math.floor(totalParagraphs / issues.length) * i);
-                                if (sectionIndex < totalParagraphs && paragraphs.items[sectionIndex]) {
-                                    targetRange = paragraphs.items[sectionIndex].getRange();
-                                    placementMethod = `section_distribution: paragraph_${sectionIndex}`;
-                                    console.log(`   ✅ Placed in document section ${sectionIndex}`);
-                                }
-                            }
-                            
-                            // FINAL FALLBACK: Document start with warning
-                            if (!targetRange) {
-                                console.warn(`   ⚠️  All strategies failed for: ${issue.type}`);
-                                console.warn(`   ⚠️  Using document start as final fallback`);
-                                targetRange = body.getRange('Start');
-                                placementMethod = "final_fallback_document_start";
-                            }
-                            
-                            // Create enhanced comment with detailed placement info
-                            const commentText = `🔍 ${issue.type.toUpperCase()}\n\n${issue.comment}\n\nSeverity: ${issue.severity.toUpperCase()}\nLocation: ${issue.location}\nPlacement Method: ${placementMethod}\nIssue ${i + 1} of ${issues.length}`;
+                            // PHASE 2: Create color-coded comment with enhanced formatting
+                            const commentText = createColorCodedComment(issue, placementMethod, i + 1, issues.length);
                             const comment = targetRange.insertComment(commentText);
                             
                             console.log(`   ✅ Comment placed using: ${placementMethod}`);
@@ -711,6 +671,83 @@
         // Legacy helper function (keep for backward compatibility)
         async function searchAndGetRange(context, body, searchText) {
             return await findExactTextAdvanced(context, body, searchText);
+        }
+
+        // PHASE 2: Color-Coded Comment Creation
+        function createColorCodedComment(issue, placementMethod, issueNumber, totalIssues) {
+            // Get severity icon and color indicator
+            const severityInfo = getSeverityInfo(issue.severity);
+            const issueTypeIcon = getIssueTypeIcon(issue.type);
+            
+            // Enhanced comment formatting with color coding
+            const commentText = `${severityInfo.icon} ${issueTypeIcon} ${issue.type.toUpperCase()}
+
+${issue.comment}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${severityInfo.indicator} PRIORITY: ${issue.severity.toUpperCase()}
+📍 LOCATION: ${issue.location}
+🔧 PLACEMENT: ${placementMethod}
+📊 PROGRESS: Issue ${issueNumber} of ${totalIssues}
+
+${getSeverityDescription(issue.severity)}`;
+
+            return commentText;
+        }
+
+        // Get severity-specific icons and indicators
+        function getSeverityInfo(severity) {
+            switch (severity.toLowerCase()) {
+                case 'high':
+                    return {
+                        icon: '🔴',
+                        indicator: '⚠️ HIGH',
+                        color: '#d13438'
+                    };
+                case 'medium':
+                    return {
+                        icon: '🟡',
+                        indicator: '📝 MEDIUM',
+                        color: '#ff8c00'
+                    };
+                case 'low':
+                    return {
+                        icon: '🟢',
+                        indicator: '💡 LOW',
+                        color: '#107c10'
+                    };
+                default:
+                    return {
+                        icon: '🔵',
+                        indicator: '📋 INFO',
+                        color: '#0078d4'
+                    };
+            }
+        }
+
+        // Get issue type specific icons
+        function getIssueTypeIcon(issueType) {
+            if (issueType.includes('Font')) return '🔤';
+            if (issueType.includes('Name')) return '👤';
+            if (issueType.includes('Date')) return '📅';
+            if (issueType.includes('Capitalization')) return '🔠';
+            if (issueType.includes('Legal')) return '⚖️';
+            if (issueType.includes('Audit')) return '📋';
+            return '🔍';
+        }
+
+        // Get severity-specific descriptions
+        function getSeverityDescription(severity) {
+            switch (severity.toLowerCase()) {
+                case 'high':
+                    return '⚡ IMMEDIATE ACTION REQUIRED - This issue may impact compliance or functionality.';
+                case 'medium':
+                    return '📝 REVIEW RECOMMENDED - This issue should be addressed to improve quality.';
+                case 'low':
+                    return '💡 ENHANCEMENT SUGGESTION - Consider addressing this for better consistency.';
+                default:
+                    return '📋 INFORMATIONAL - This item was flagged for your review.';
+            }
         }
 
         function displayResults(analysisResult) {
