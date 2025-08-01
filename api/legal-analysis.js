@@ -121,7 +121,15 @@ export default async function handler(req, res) {
       const jsonEnd = responseText.lastIndexOf('}');
       
       if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
-        const jsonString = responseText.substring(jsonStart, jsonEnd + 1);
+        let jsonString = responseText.substring(jsonStart, jsonEnd + 1);
+        
+        // Clean smart quotes and other problematic characters
+        jsonString = jsonString
+          .replace(/"/g, '"')  // Replace smart quotes with regular quotes
+          .replace(/"/g, '"')  // Replace smart quotes with regular quotes
+          .replace(/'/g, "'")  // Replace smart single quotes
+          .replace(/'/g, "'"); // Replace smart single quotes
+        
         console.log('Extracted JSON:', jsonString);
         analysisResult = JSON.parse(jsonString);
       } else {
