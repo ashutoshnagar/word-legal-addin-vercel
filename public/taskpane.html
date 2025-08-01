@@ -307,50 +307,78 @@
                         
                         for (const issue of issues) {
                             let targetRange = null;
+                            let placementMethod = "unknown";
                             
-                            // Try to find specific text patterns based on issue type
-                            if (issue.type.includes('Name Prefix')) {
-                                // Find text with Mr., Ms., etc.
-                                const prefixMatch = documentText.match(/(Mr\.|Ms\.|Miss|Mrs\.)\s+[A-Za-z]+/i);
-                                if (prefixMatch) {
-                                    targetRange = await searchAndGetRange(context, body, prefixMatch[0]);
-                                }
-                            } else if (issue.type.includes('Date Format')) {
-                                // Find date patterns like 15/01/2025
-                                const dateMatch = documentText.match(/\d{1,2}\/\d{1,2}\/\d{4}/);
-                                if (dateMatch) {
-                                    targetRange = await searchAndGetRange(context, body, dateMatch[0]);
-                                }
-                            } else if (issue.type.includes('Capitalization')) {
-                                // Find "Regional Sales Team" pattern
-                                const capMatch = documentText.match(/Regional Sales Team|[A-Z][a-z]+ [A-Z][a-z]+ Team/);
-                                if (capMatch) {
-                                    targetRange = await searchAndGetRange(context, body, capMatch[0]);
-                                }
-                            } else if (issue.location.includes('report title') || issue.location.includes('title')) {
-                                // Find the first line (likely the title)
-                                const titleMatch = documentText.split('\n')[0];
-                                if (titleMatch && titleMatch.trim()) {
-                                    targetRange = await searchAndGetRange(context, body, titleMatch.trim());
-                                }
-                            } else if (issue.location.includes('Page 1')) {
-                                // Try to find first substantial content
-                                const firstLine = documentText.split('\n').find(line => line.trim().length > 5);
-                                if (firstLine) {
-                                    targetRange = await searchAndGetRange(context, body, firstLine.trim());
+                            console.log(`Processing issue: ${issue.type}`);
+                            console.log(`Location: ${issue.location}`);
+                            console.log(`Exact text provided: ${issue.exact_text || 'None'}`);
+                            
+                            // PRIORITY 1: Use exact_text if provided by AI
+                            if (issue.exact_text) {
+                                console.log(`Attempting to find exact text: "${issue.exact_text}"`);
+                                targetRange = await searchAndGetRange(context, body, issue.exact_text);
+                                
+                                if (targetRange) {
+                                    placementMethod = `exact_text_match: "${issue.exact_text}"`;
+                                    console.log(`✅ Found exact text match for: ${issue.type}`);
+                                } else {
+                                    console.log(`❌ Exact text not found: "${issue.exact_text}"`);
+                                    
+                                    // Try partial match for long text
+                                    if (issue.exact_text.length > 15) {
+                                        const firstPart = issue.exact_text.substring(0, 15);
+                                        console.log(`Trying partial match: "${firstPart}"`);
+                                        targetRange = await searchAndGetRange(context, body, firstPart);
+                                        if (targetRange) {
+                                            placementMethod = `partial_text_match: "${firstPart}"`;
+                                            console.log(`✅ Found partial text match for: ${issue.type}`);
+                                        }
+                                    }
                                 }
                             }
                             
-                            // Fallback: use document start if no specific location found
+                            // PRIORITY 2: Extract page number and place comment on that page
+                            if (!targetRange && issue.location) {
+                                console.log(`Exact text failed, attempting page-level placement for: ${issue.location}`);
+                                
+                                // Extract page number from location
+                                const pageMatch = issue.location.match(/Page\s+(\d+)/i);
+                                if (pageMatch) {
+                                    const pageNum = parseInt(pageMatch[1]);
+                                    console.log(`Attempting to place comment on page ${pageNum}`);
+                                    
+                                    // For multi-page documents, try to estimate position
+                                    // This is a rough approximation since we can't directly access page breaks
+                                    const lines = documentText.split('\n');
+                                    const estimatedLinesPerPage = 50; // Rough estimate
+                                    const targetLineIndex = Math.max(0, (pageNum - 1) * estimatedLinesPerPage);
+                                    
+                                    if (targetLineIndex < lines.length) {
+                                        const targetLine = lines[targetLineIndex];
+                                        if (targetLine && targetLine.trim()) {
+                                            targetRange = await searchAndGetRange(context, body, targetLine.trim());
+                                            if (targetRange) {
+                                                placementMethod = `page_level_estimated: Page ${pageNum}, line ${targetLineIndex}`;
+                                                console.log(`✅ Placed comment on estimated page ${pageNum} location`);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            // PRIORITY 3: Final fallback to document start with warning
                             if (!targetRange) {
+                                console.warn(`⚠️  Could not find specific location for issue: ${issue.type}`);
+                                console.warn(`⚠️  Using document start as fallback`);
                                 targetRange = body.getRange('Start');
+                                placementMethod = "fallback_document_start";
                             }
                             
-                            // Create comment with color coding
-                            const commentText = `🔍 ${issue.type.toUpperCase()}\n\n${issue.comment}\n\nSeverity: ${issue.severity.toUpperCase()}`;
+                            // Create enhanced comment with placement info
+                            const commentText = `🔍 ${issue.type.toUpperCase()}\n\n${issue.comment}\n\nSeverity: ${issue.severity.toUpperCase()}\nLocation: ${issue.location}\nPlacement: ${placementMethod}`;
                             const comment = targetRange.insertComment(commentText);
                             
-                            // Color coding based on severity (Note: Word Online has limited comment styling)
+                            console.log(`✅ Comment added using method: ${placementMethod}`);
                             context.load(comment);
                         }
                         

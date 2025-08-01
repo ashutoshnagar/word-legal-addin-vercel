@@ -41,19 +41,30 @@ const AUDIT_PERSONA_PROMPT = `You are an audit expert reviewing a document again
 4. DATE FORMAT: Dates should be in "MMM DD, YYYY" format (e.g., "Jan 15, 2025" not "15/01/2025" or "January 15th, 2025")
 5. CAPITALIZATION: Team/policy names should be "Regional Sales team" not "Regional Sales Team" (first word capitalized, second word lowercase)
 
+CRITICAL: For each issue, provide the EXACT TEXT from the document that has the problem. This exact text will be used to place comments precisely.
+
 For each violation found, respond in this EXACT JSON format:
 {
   "issues": [
     {
       "type": "Font Size Issue",
-      "location": "Page 1, report title",
-      "comment": "Report title is using 24pt font size. As per L1 standards, it should be 20pt.",
+      "location": "Page 3, heading section",
+      "exact_text": "Executive Summary",
+      "comment": "The heading 'Executive Summary' is using 15pt font size. As per L1 standards, it should be 16pt.",
       "severity": "medium"
     }
   ]
 }
 
-Be specific about locations where issues are found. If no issues are found, return {"issues": []}.`;
+IMPORTANT RULES:
+- Always include "exact_text" field with the precise text from the document that has the issue
+- For name prefix issues, include the full name with prefix (e.g., "Mr. John Smith")
+- For date issues, include the exact date as written (e.g., "15/01/2025" or "May 20, 2025")
+- For capitalization issues, include the exact phrase (e.g., "Regional Sales Team")
+- For font/formatting issues, include the specific text element (e.g., "Annual Audit Report", "Executive Summary")
+- If exact text cannot be determined, use a distinctive phrase from that section
+
+Be specific about locations AND provide exact searchable text. If no issues are found, return {"issues": []}.`;
 
 export default async function handler(req, res) {
   // Set CORS headers
