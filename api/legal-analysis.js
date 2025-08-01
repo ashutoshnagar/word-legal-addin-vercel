@@ -116,12 +116,16 @@ export default async function handler(req, res) {
     // Extract JSON from response (handle cases where Claude adds explanatory text)
     let analysisResult;
     try {
-      // Look for JSON object in the response
-      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        analysisResult = JSON.parse(jsonMatch[0]);
+      // Find the start of JSON (first '{') and extract from there
+      const jsonStart = responseText.indexOf('{');
+      const jsonEnd = responseText.lastIndexOf('}');
+      
+      if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+        const jsonString = responseText.substring(jsonStart, jsonEnd + 1);
+        console.log('Extracted JSON:', jsonString);
+        analysisResult = JSON.parse(jsonString);
       } else {
-        throw new Error('No JSON found in response');
+        throw new Error('No valid JSON found in response');
       }
     } catch (parseError) {
       console.error('Failed to parse JSON response:', parseError);
