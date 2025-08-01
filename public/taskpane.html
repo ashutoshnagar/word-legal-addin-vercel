@@ -300,33 +300,58 @@
                 Word.run(async (context) => {
                     try {
                         const body = context.document.body;
-                        const paragraphs = body.paragraphs;
-                        context.load(paragraphs, 'items');
+                        context.load(body, 'text');
                         await context.sync();
                         
+                        const documentText = body.text;
+                        
                         for (const issue of issues) {
-                            // Extract paragraph number from location (e.g., "paragraph 3" -> 3)
-                            const paragraphMatch = issue.location.match(/paragraph\s+(\d+)/i);
-                            if (paragraphMatch) {
-                                const paragraphIndex = parseInt(paragraphMatch[1]) - 1; // Convert to 0-based index
-                                
-                                if (paragraphIndex >= 0 && paragraphIndex < paragraphs.items.length) {
-                                    const paragraph = paragraphs.items[paragraphIndex];
-                                    const range = paragraph.getRange();
-                                    
-                                    // Add comment to the paragraph
-                                    const comment = range.insertComment(`${issue.type}: ${issue.comment}`);
-                                    context.load(comment);
+                            let targetRange = null;
+                            
+                            // Try to find specific text patterns based on issue type
+                            if (issue.type.includes('Name Prefix')) {
+                                // Find text with Mr., Ms., etc.
+                                const prefixMatch = documentText.match(/(Mr\.|Ms\.|Miss|Mrs\.)\s+[A-Za-z]+/i);
+                                if (prefixMatch) {
+                                    targetRange = await searchAndGetRange(context, body, prefixMatch[0]);
                                 }
-                            } else {
-                                // If we can't parse the location, add comment to the first paragraph
-                                if (paragraphs.items.length > 0) {
-                                    const firstParagraph = paragraphs.items[0];
-                                    const range = firstParagraph.getRange();
-                                    const comment = range.insertComment(`${issue.type}: ${issue.comment}`);
-                                    context.load(comment);
+                            } else if (issue.type.includes('Date Format')) {
+                                // Find date patterns like 15/01/2025
+                                const dateMatch = documentText.match(/\d{1,2}\/\d{1,2}\/\d{4}/);
+                                if (dateMatch) {
+                                    targetRange = await searchAndGetRange(context, body, dateMatch[0]);
+                                }
+                            } else if (issue.type.includes('Capitalization')) {
+                                // Find "Regional Sales Team" pattern
+                                const capMatch = documentText.match(/Regional Sales Team|[A-Z][a-z]+ [A-Z][a-z]+ Team/);
+                                if (capMatch) {
+                                    targetRange = await searchAndGetRange(context, body, capMatch[0]);
+                                }
+                            } else if (issue.location.includes('report title') || issue.location.includes('title')) {
+                                // Find the first line (likely the title)
+                                const titleMatch = documentText.split('\n')[0];
+                                if (titleMatch && titleMatch.trim()) {
+                                    targetRange = await searchAndGetRange(context, body, titleMatch.trim());
+                                }
+                            } else if (issue.location.includes('Page 1')) {
+                                // Try to find first substantial content
+                                const firstLine = documentText.split('\n').find(line => line.trim().length > 5);
+                                if (firstLine) {
+                                    targetRange = await searchAndGetRange(context, body, firstLine.trim());
                                 }
                             }
+                            
+                            // Fallback: use document start if no specific location found
+                            if (!targetRange) {
+                                targetRange = body.getRange('Start');
+                            }
+                            
+                            // Create comment with color coding
+                            const commentText = `🔍 ${issue.type.toUpperCase()}\n\n${issue.comment}\n\nSeverity: ${issue.severity.toUpperCase()}`;
+                            const comment = targetRange.insertComment(commentText);
+                            
+                            // Color coding based on severity (Note: Word Online has limited comment styling)
+                            context.load(comment);
                         }
                         
                         await context.sync();
@@ -337,6 +362,22 @@
                     }
                 });
             });
+        }
+        
+        // Helper function to search for text and return range
+        async function searchAndGetRange(context, body, searchText) {
+            try {
+                const searchResults = body.search(searchText, { matchCase: false, matchWholeWord: false });
+                context.load(searchResults, 'items');
+                await context.sync();
+                
+                if (searchResults.items.length > 0) {
+                    return searchResults.items[0]; // Return first match
+                }
+            } catch (error) {
+                console.warn('Search failed for:', searchText, error);
+            }
+            return null;
         }
 
         function displayResults(analysisResult) {
